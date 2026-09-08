@@ -24,7 +24,7 @@
     body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.5; min-height:100vh; }
 
     /* ── Header ── */
-    .header { border-bottom:1px solid var(--cborder); padding:16px 28px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:rgba(10,10,10,0.96); backdrop-filter:blur(10px); z-index:20; }
+    .header { border-bottom:1px solid var(--cborder); padding:16px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; position:sticky; top:0; background:rgba(10,10,10,0.96); backdrop-filter:blur(10px); z-index:20; }
     .brand  { display:flex; align-items:center; gap:12px; }
     .brand-name { font-size:15px; font-weight:600; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; }
     .brand-sub  { font-size:11px; color:var(--muted); letter-spacing:0.05em; }
@@ -227,7 +227,8 @@
     .main { padding:20px 28px 40px; }
 
     /* ── KPI grid ── */
-    .kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+    .kpi-grid { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+    .kpi-grid .kpi { flex:1 1 150px; min-width:150px; }
     .kpi { background:var(--card); border:1px solid var(--cborder); border-radius:10px; padding:16px 18px; position:relative; overflow:hidden; }
     .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--gold); opacity:.55; }
     .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
@@ -252,8 +253,11 @@
     .date-badge:hover .date-badge-x { opacity:1; }
 
     /* ── Charts row ── */
-    .charts-row  { display:grid; grid-template-columns:1.6fr 1fr; gap:10px; margin-bottom:10px; }
-    .bottom-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .charts-row  { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+    .charts-row > .card:first-child  { flex:1.6 1 380px; min-width:280px; }
+    .charts-row > .card:last-child   { flex:1 1 260px; min-width:260px; }
+    .bottom-row  { display:flex; flex-wrap:wrap; gap:10px; }
+    .bottom-row > .card { flex:1 1 320px; min-width:280px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; }
     .card-title { font-size:11px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:.09em; margin-bottom:14px; display:flex; align-items:center; gap:7px; }
     .card-title::before { content:''; width:3px; height:12px; background:var(--gold); border-radius:2px; flex-shrink:0; }
@@ -387,10 +391,24 @@
     #chartDist { cursor:pointer; }
 
     @media (max-width:860px) {
-      .kpi-grid { grid-template-columns:repeat(2,1fr); }
-      .charts-row, .bottom-row { grid-template-columns:1fr; }
       .header, .main, .mes-wrap, .cat-wrap, .prov-wrap, .date-wrap, .sincat-banner { padding-left:16px; padding-right:16px; }
       .modal-header, .modal-body { padding-left:16px; padding-right:16px; }
+    }
+
+    /* ── Teléfonos angostos ── */
+    @media (max-width:480px) {
+      .header { padding:12px 14px; }
+      .brand-sub { display:none; }
+      .ts { display:none; }
+      .main, .tab-wrap, .mes-wrap, .cat-wrap, .prov-wrap, .date-wrap, .rcat-wrap, .rsearch-wrap, .recetas-main, .rtoolbar, .sincat-banner, .fallos-banner { padding-left:12px; padding-right:12px; }
+      .kpi-grid .kpi { flex-basis:130px; min-width:130px; padding:12px 14px; }
+      .kpi-value { font-size:21px; }
+      .card { padding:14px; }
+    }
+
+    /* Scroll táctil suave en las filas de pills (iOS) */
+    .mes-scroll, .cat-scroll, .prov-scroll, .date-scroll, .rcat-scroll {
+      -webkit-overflow-scrolling: touch;
     }
   </style>
 </head>

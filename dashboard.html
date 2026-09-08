@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Malagana Rooftop</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:    #C8922A;
+      --gold2:   rgba(200,146,42,0.55);
+      --gold3:   rgba(200,146,42,0.22);
+      --goldb:   rgba(200,146,42,0.28);
+      --bg:      #0a0a0a;
+      --card:    #141414;
+      --card2:   #1c1c1c;
+      --text:    #f0f0f0;
+      --muted:   #888;
+      --dim:     #484848;
+      --border:  rgba(255,255,255,0.07);
+      --cborder: rgba(200,146,42,0.28);
+    }
+    body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.5; min-height:100vh; }
+
+    /* ── Header ── */
+    .header { border-bottom:1px solid var(--cborder); padding:16px 28px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:rgba(10,10,10,0.96); backdrop-filter:blur(10px); z-index:20; }
+    .brand  { display:flex; align-items:center; gap:12px; }
+    .brand-name { font-size:15px; font-weight:600; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; }
+    .brand-sub  { font-size:11px; color:var(--muted); letter-spacing:0.05em; }
+    .header-actions { display:flex; align-items:center; gap:10px; }
+    .btn-refresh { background:none; border:1px solid var(--cborder); color:var(--muted); padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px; transition:all .2s; }
+    .btn-refresh:hover { border-color:var(--gold); color:var(--gold); }
+    .dot-live { width:7px; height:7px; border-radius:50%; background:#3a3; animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .ts { font-size:11px; color:var(--dim); }
+
+    /* ── Loading bar ── */
+    .loading-bar { height:2px; background:var(--gold); width:0; position:fixed; top:0; left:0; z-index:100; transition:width .3s; }
+
+    /* ── Error ── */
+    .error-box { background:#1f0f0f; border:1px solid #5a2020; border-radius:8px; color:#f87; padding:14px 20px; margin:20px 28px; font-size:13px; display:none; }
+
+    /* ── Tabs ── */
+    .tab-wrap { padding:14px 28px 0; display:flex; gap:6px; }
+    .tab-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:7px 18px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:500; transition:all .2s; letter-spacing:.03em; }
+    .tab-btn:hover { border-color:var(--gold2); color:var(--text); }
+    .tab-btn.active { background:var(--gold3); border-color:var(--gold); color:var(--gold); font-weight:600; }
+
+    /* ── Sección compras / recetas ── */
+    .section { display:none; }
+    .section.active { display:block; }
+
+    /* ── Recetas: categoría pills ── */
+    .rcat-wrap { padding:10px 28px 0; }
+    .rcat-scroll { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; align-items:center; }
+    .rcat-scroll::-webkit-scrollbar { display:none; }
+    .rcat-pill { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 14px; border-radius:20px; cursor:pointer; font-size:11px; white-space:nowrap; transition:all .2s; flex-shrink:0; }
+    .rcat-pill:hover { border-color:var(--gold2); color:var(--text); }
+    .rcat-pill.active { background:var(--gold3); border-color:var(--gold); color:var(--gold); font-weight:600; }
+
+    /* ── Recetas: buscador ── */
+    .rsearch-wrap { padding:10px 28px 0; }
+    .rsearch-input { background:var(--card); border:1px solid var(--border); color:var(--text); padding:7px 14px; border-radius:20px; font-size:12px; width:240px; outline:none; transition:border-color .2s; }
+    .rsearch-input::placeholder { color:var(--dim); }
+    .rsearch-input:focus { border-color:var(--gold2); }
+
+    /* ── Recetas: grid de cards ── */
+    .recetas-main { padding:16px 28px 40px; }
+    .recetas-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
+    .receta-card {
+      background:var(--card); border:1px solid var(--border); border-radius:10px;
+      padding:16px; cursor:pointer; transition:all .2s; position:relative; overflow:hidden;
+    }
+    .receta-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--gold); opacity:.4; transition:opacity .2s; }
+    .receta-card:hover { border-color:var(--cborder); transform:translateY(-2px); }
+    .receta-card:hover::before { opacity:1; }
+    .rcard-cat { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+    .rcard-nombre { font-size:13px; font-weight:600; color:var(--text); line-height:1.3; margin-bottom:8px; }
+    .rcard-count { font-size:11px; color:var(--dim); }
+    .rcard-count span { color:var(--gold); font-weight:600; }
+
+    /* ── Modal receta ── */
+    .rmodal-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
+    .rmodal-table thead tr { border-bottom:1px solid var(--border); }
+    .rmodal-table th { padding:7px 10px; text-align:left; font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; }
+    .rmodal-table th.right { text-align:right; }
+    .rmodal-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text); }
+    .rmodal-table td.right { text-align:right; color:var(--gold); font-weight:600; white-space:nowrap; }
+    .rmodal-table tr:last-child td { border-bottom:none; }
+    .rmodal-table tr:hover td { background:rgba(255,255,255,0.02); }
+    .rmodal-ingr-count { margin-top:10px; font-size:11px; color:var(--dim); text-align:right; }
+
+    @media (max-width:860px) {
+      .tab-wrap, .rcat-wrap, .rsearch-wrap, .recetas-main { padding-left:16px; padding-right:16px; }
+      .recetas-grid { grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); }
+    }
+
+    /* ── Recetas: edición ── */
+    .rtoolbar { padding:10px 28px 0; display:flex; justify-content:flex-end; }
+    .btn-nuevo-plato { background:var(--gold3); border:1px solid var(--gold); color:var(--gold); padding:6px 16px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600; transition:all .2s; }
+    .btn-nuevo-plato:hover { background:var(--goldb); }
+    .rcat-pill-wrap { display:inline-flex; align-items:center; gap:1px; flex-shrink:0; }
+    .rcat-edit-icon { background:none; border:none; color:var(--dim); cursor:pointer; font-size:10px; padding:0 4px; opacity:.6; }
+    .rcat-edit-icon:hover { color:var(--gold); opacity:1; }
+    .rmodal-actions { display:flex; gap:8px; margin-top:2px; }
+    .rmodal-actions button { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 12px; border-radius:14px; cursor:pointer; font-size:11px; transition:all .2s; }
+    .rmodal-actions button:hover { border-color:var(--gold2); color:var(--text); }
+    .rmodal-actions button.danger:hover { border-color:#a33; color:#e05555; }
+    .rmodal-table td.actions { white-space:nowrap; text-align:right; }
+    .ricon-btn { background:none; border:none; color:var(--dim); cursor:pointer; font-size:12px; padding:2px 5px; }
+    .ricon-btn:hover { color:var(--gold); }
+    .ricon-btn.danger:hover { color:#e05555; }
+    .ringr-add-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:3px 10px; border-radius:14px; cursor:pointer; font-size:11px; }
+    .ringr-add-btn:hover { border-color:var(--gold2); color:var(--text); }
+    @media (max-width:860px) {
+      .rtoolbar { padding-left:16px; padding-right:16px; }
+    }
+
+    /* ── Mes pills ── */
+    .mes-wrap { padding:14px 28px 0; }
+    .mes-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+    .mes-scroll::-webkit-scrollbar { display:none; }
+    .mes-pill { background:none; border:1px solid var(--border); color:var(--muted); padding:5px 14px; border-radius:20px; cursor:pointer; font-size:12px; white-space:nowrap; transition:all .2s; flex-shrink:0; }
+    .mes-pill:hover { border-color:var(--gold2); color:var(--text); }
+    .mes-pill.active { background:var(--gold3); border-color:var(--gold); color:var(--gold); font-weight:600; }
+
+    /* ── Categoría pills ── */
+    .cat-wrap { padding:10px 28px 0; }
+    .cat-scroll { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; align-items:center; }
+    .cat-scroll::-webkit-scrollbar { display:none; }
+    .filter-label { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.07em; margin-right:4px; white-space:nowrap; flex-shrink:0; }
+    .cat-pill { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 12px; border-radius:20px; cursor:pointer; font-size:11px; white-space:nowrap; transition:all .2s; flex-shrink:0; }
+    .cat-pill:hover { border-color:var(--gold2); color:var(--text); }
+    .cat-pill.active { font-weight:600; }
+    .cat-pill[data-cat="Todos"].active           { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.3); color:var(--text); }
+    .cat-pill[data-cat="Alimentos"].active        { background:rgba(224,107,76,0.15); border-color:#E06B4C; color:#E06B4C; }
+    .cat-pill[data-cat="Bebidas"].active          { background:rgba(93,202,165,0.15); border-color:#5DCAA5; color:#5DCAA5; }
+    .cat-pill[data-cat="Operativos"].active       { background:rgba(127,119,221,0.15); border-color:#7F77DD; color:#7F77DD; }
+    .cat-pill[data-cat="Activos"].active          { background:rgba(55,138,221,0.15); border-color:#378ADD; color:#378ADD; }
+    .cat-pill[data-cat="Sin clasificar"].active   { background:rgba(200,146,42,0.12); border-color:var(--gold); color:var(--gold); }
+
+    /* ── Proveedor pills ── */
+    .prov-wrap { padding:8px 28px 0; }
+    .prov-scroll { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; align-items:center; }
+    .prov-scroll::-webkit-scrollbar { display:none; }
+    .prov-pill { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 12px; border-radius:20px; cursor:pointer; font-size:11px; white-space:nowrap; transition:all .2s; flex-shrink:0; }
+    .prov-pill:hover { border-color:var(--gold2); color:var(--text); }
+    .prov-pill.active { background:rgba(200,146,42,0.12); border-color:var(--gold); color:var(--gold); font-weight:600; }
+
+    /* ── Rango de fechas ── */
+    .date-wrap { padding:8px 28px 0; }
+    .date-scroll { display:flex; gap:8px; overflow-x:auto; align-items:center; scrollbar-width:none; }
+    .date-scroll::-webkit-scrollbar { display:none; }
+    .date-input {
+      background:var(--card); border:1px solid var(--border); color:var(--text);
+      padding:4px 10px; border-radius:20px; font-size:11px; cursor:pointer;
+      outline:none; transition:border-color .2s;
+      color-scheme:dark;
+    }
+    .date-input::-webkit-calendar-picker-indicator { filter:invert(0.5); cursor:pointer; }
+    .date-input:focus, .date-input:hover { border-color:var(--gold2); }
+    .date-input.active { border-color:var(--gold); background:rgba(200,146,42,0.08); color:var(--gold); }
+    .date-sep { font-size:11px; color:var(--dim); flex-shrink:0; }
+    .date-clear {
+      background:none; border:1px solid var(--border); color:var(--dim);
+      width:22px; height:22px; border-radius:50%; cursor:pointer; font-size:11px;
+      display:none; align-items:center; justify-content:center; flex-shrink:0;
+      transition:all .15s;
+    }
+    .date-clear:hover { border-color:var(--gold); color:var(--gold); }
+    .date-clear.show { display:flex; }
+
+    /* ── Badge sin clasificar ── */
+    .sincat-banner {
+      display:none; margin:8px 28px 0;
+      background:rgba(200,146,42,0.07); border:1px solid rgba(200,146,42,0.22);
+      border-radius:8px; padding:8px 14px;
+      font-size:11px; color:var(--muted);
+      align-items:center; gap:8px;
+    }
+    .sincat-banner.show { display:flex; }
+    .sincat-num { color:var(--gold); font-weight:700; font-size:13px; }
+    .sincat-link { color:var(--gold); cursor:pointer; text-decoration:underline; }
+    .sincat-link:hover { opacity:.8; }
+
+    /* ── Banner facturas con error ── */
+    .fallos-banner {
+      display:none; margin:8px 28px 0;
+      background:rgba(220,60,60,0.07); border:1px solid rgba(220,60,60,0.3);
+      border-radius:8px; padding:8px 14px;
+      font-size:11px; color:var(--muted);
+      align-items:center; gap:10px; cursor:pointer;
+    }
+    .fallos-banner.show { display:flex; }
+    .fallos-banner:hover { background:rgba(220,60,60,0.12); }
+    .fallos-num { color:#e05555; font-weight:700; font-size:13px; }
+    .fallos-irr { color:#aaa; font-size:10px; margin-left:4px; }
+
+    /* ── Modal fallos ── */
+    .fallos-modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,0.7); z-index:1000;
+      align-items:center; justify-content:center;
+    }
+    .fallos-modal-overlay.show { display:flex; }
+    .fallos-modal {
+      background:#1a1a2e; border:1px solid rgba(200,146,42,0.25);
+      border-radius:12px; padding:24px 28px; width:90%; max-width:600px;
+      max-height:80vh; overflow-y:auto;
+    }
+    .fallos-modal h3 { color:#e05555; margin:0 0 16px; font-size:15px; }
+    .fallos-item {
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      padding:10px 0; font-size:11px; color:var(--muted);
+    }
+    .fallos-item:last-child { border-bottom:none; }
+    .fallos-item-nombre { color:#eee; font-weight:600; margin-bottom:4px; font-size:12px; }
+    .fallos-item-error { color:#e05555; margin:2px 0; }
+    .fallos-item-estado { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+    .estado-pendiente { background:rgba(200,146,42,0.15); color:var(--gold); }
+    .estado-irresolvable { background:rgba(220,60,60,0.15); color:#e05555; }
+    .fallos-modal-close { float:right; background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; margin-top:-4px; }
+    .fallos-modal-close:hover { color:#fff; }
+
+    /* ── Main ── */
+    .main { padding:20px 28px 40px; }
+
+    /* ── KPI grid ── */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+    .kpi { background:var(--card); border:1px solid var(--cborder); border-radius:10px; padding:16px 18px; position:relative; overflow:hidden; }
+    .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--gold); opacity:.55; }
+    .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+    .kpi-value { font-size:26px; font-weight:600; line-height:1; margin-bottom:5px; transition:all .3s; }
+    .kpi-value.gold { color:var(--gold); }
+    .kpi-sub { font-size:11px; color:var(--dim); }
+
+    /* ── Periodo ── */
+    .periodo-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:6px; }
+    .periodo-label { font-size:12px; color:var(--muted); }
+    .periodo-label strong { color:var(--text); font-weight:500; }
+    .active-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .cat-badge { display:none; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:600; }
+    .cat-badge.show { display:inline-block; }
+    .prov-badge { display:none; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:600; background:rgba(200,146,42,0.12); border:1px solid var(--gold); color:var(--gold); cursor:pointer; }
+    .prov-badge.show { display:inline-flex; align-items:center; gap:5px; }
+    .prov-badge-x { opacity:.6; font-size:10px; }
+    .prov-badge:hover .prov-badge-x { opacity:1; }
+    .date-badge { display:none; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:600; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:var(--text); cursor:pointer; }
+    .date-badge.show { display:inline-flex; align-items:center; gap:5px; }
+    .date-badge-x { opacity:.6; font-size:10px; }
+    .date-badge:hover .date-badge-x { opacity:1; }
+
+    /* ── Charts row ── */
+    .charts-row  { display:grid; grid-template-columns:1.6fr 1fr; gap:10px; margin-bottom:10px; }
+    .bottom-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; }
+    .card-title { font-size:11px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:.09em; margin-bottom:14px; display:flex; align-items:center; gap:7px; }
+    .card-title::before { content:''; width:3px; height:12px; background:var(--gold); border-radius:2px; flex-shrink:0; }
+    .card-hint { font-size:10px; color:var(--dim); margin-left:auto; letter-spacing:0; text-transform:none; font-weight:400; }
+
+    /* ── Legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:8px 14px; margin-bottom:12px; }
+    .leg { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); cursor:pointer; transition:color .15s; }
+    .leg:hover { color:var(--text); }
+    .leg.leg-active { color:var(--gold); }
+    .leg-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+
+    /* ── Proveedor bars (clickeable) ── */
+    .prov-list { display:flex; flex-direction:column; gap:10px; }
+    .prov-item { cursor:pointer; border-radius:6px; padding:4px 6px; margin:-4px -6px; transition:background .15s; }
+    .prov-item:hover { background:rgba(255,255,255,0.04); }
+    .prov-item.prov-active { background:rgba(200,146,42,0.08); }
+    .prov-header { display:flex; justify-content:space-between; margin-bottom:4px; }
+    .prov-name { font-size:12px; color:var(--text); }
+    .prov-name .prov-tick { color:var(--gold); font-size:10px; margin-left:4px; opacity:0; transition:opacity .15s; }
+    .prov-item.prov-active .prov-name .prov-tick { opacity:1; }
+    .prov-val  { font-size:12px; color:var(--gold); font-weight:600; }
+    .bar-track { height:4px; background:rgba(255,255,255,0.05); border-radius:2px; }
+    .bar-fill  { height:100%; border-radius:2px; background:var(--gold); opacity:.72; transition:width .5s ease; }
+
+    /* ── Insumos ── */
+    .ins-list { display:flex; flex-direction:column; gap:9px; }
+    .ins-row  { display:flex; align-items:center; gap:8px; }
+    .ins-rank { font-size:10px; color:var(--dim); width:14px; text-align:right; flex-shrink:0; }
+    .ins-name { flex:1; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+    .ins-track { width:70px; height:3px; background:rgba(255,255,255,0.05); border-radius:2px; flex-shrink:0; }
+    .ins-fill  { height:100%; border-radius:2px; background:var(--gold); opacity:.6; transition:width .5s ease; }
+    .ins-val   { font-size:11px; color:var(--gold); font-weight:600; width:50px; text-align:right; flex-shrink:0; }
+
+    /* ── Empty state ── */
+    .empty { color:var(--dim); font-size:12px; padding:20px 0; text-align:center; }
+
+    /* ── Footer ── */
+    .footer { margin-top:20px; text-align:center; font-size:10px; color:var(--dim); letter-spacing:.05em; }
+
+    /* ══════════════════════════════════════════
+       MODAL DRILL-DOWN
+    ══════════════════════════════════════════ */
+    .modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,0.75); backdrop-filter:blur(5px);
+      z-index:50; align-items:center; justify-content:center;
+      padding:16px;
+    }
+    .modal-overlay.open { display:flex; }
+
+    .modal-panel {
+      background:var(--card); border:1px solid var(--cborder);
+      border-radius:14px; width:min(760px, 100%); max-height:82vh;
+      display:flex; flex-direction:column; overflow:hidden;
+      animation:modalIn .2s ease;
+    }
+    @keyframes modalIn {
+      from { opacity:0; transform:translateY(14px) scale(.98); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      padding:20px 24px 16px; border-bottom:1px solid var(--border);
+      display:flex; align-items:flex-start; justify-content:space-between;
+      flex-shrink:0;
+    }
+    .modal-title    { font-size:17px; font-weight:600; color:var(--gold); letter-spacing:.03em; }
+    .modal-subtitle { font-size:12px; color:var(--muted); margin-top:4px; }
+    .modal-close {
+      background:none; border:1px solid var(--border); color:var(--muted);
+      width:30px; height:30px; border-radius:7px; cursor:pointer;
+      font-size:15px; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-left:20px; transition:all .15s;
+    }
+    .modal-close:hover { border-color:var(--gold); color:var(--gold); }
+
+    .modal-body { overflow-y:auto; padding:0 24px 24px; flex:1; }
+    .modal-body::-webkit-scrollbar { width:4px; }
+    .modal-body::-webkit-scrollbar-track { background:transparent; }
+    .modal-body::-webkit-scrollbar-thumb { background:var(--dim); border-radius:2px; }
+
+    /* Tabla de detalle */
+    .detail-table {
+      width:100%; border-collapse:collapse; margin-top:16px; font-size:12px;
+    }
+    .detail-table thead tr { border-bottom:1px solid var(--border); }
+    .detail-table th {
+      padding:8px 10px; text-align:left; font-size:10px; font-weight:600;
+      color:var(--muted); text-transform:uppercase; letter-spacing:.07em;
+    }
+    .detail-table th.right { text-align:right; }
+    .detail-table td {
+      padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.04);
+      color:var(--text); vertical-align:top;
+    }
+    .detail-table td.right { text-align:right; color:var(--gold); font-weight:600; white-space:nowrap; }
+    .detail-table td.muted { color:var(--muted); font-size:11px; }
+    .detail-table tr:last-child td { border-bottom:none; }
+    .detail-table tr:hover td { background:rgba(255,255,255,0.02); }
+
+    /* Fila de proveedor agrupador */
+    .prov-group-header td {
+      background:rgba(200,146,42,0.06); color:var(--gold);
+      font-size:11px; font-weight:600; letter-spacing:.04em;
+      padding:6px 10px; border-bottom:1px solid rgba(200,146,42,0.12);
+    }
+
+    /* Chip de categoría en tabla modal */
+    .cat-chip {
+      display:inline-block; font-size:9px; padding:2px 6px; border-radius:8px;
+      font-weight:600; vertical-align:middle; margin-left:5px; opacity:.8;
+    }
+    .cat-chip-alimentos  { background:rgba(224,107,76,0.2);  color:#E06B4C; }
+    .cat-chip-bebidas    { background:rgba(93,202,165,0.2);  color:#5DCAA5; }
+    .cat-chip-operativos { background:rgba(127,119,221,0.2); color:#7F77DD; }
+    .cat-chip-activos    { background:rgba(55,138,221,0.2);  color:#378ADD; }
+    .cat-chip-sin        { background:rgba(200,146,42,0.15); color:var(--gold); }
+
+    /* Total al pie del modal */
+    .modal-total {
+      margin-top:16px; padding:12px 16px; background:var(--gold3);
+      border:1px solid var(--cborder); border-radius:8px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .modal-total-label { font-size:12px; color:var(--muted); }
+    .modal-total-value { font-size:18px; font-weight:700; color:var(--gold); }
+
+    /* Cursor pointer en las barras del chart */
+    #chartDia { cursor:pointer; }
+    #chartDist { cursor:pointer; }
+
+    @media (max-width:860px) {
+      .kpi-grid { grid-template-columns:repeat(2,1fr); }
+      .charts-row, .bottom-row { grid-template-columns:1fr; }
+      .header, .main, .mes-wrap, .cat-wrap, .prov-wrap, .date-wrap, .sincat-banner { padding-left:16px; padding-right:16px; }
+      .modal-header, .modal-body { padding-left:16px; padding-right:16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-bar" id="loadingBar"></div>
+
+<header class="header">
+  <div class="brand">
+    <img src="logo.png" alt="Malagana Rooftop" style="height:42px; width:auto; object-fit:contain;">
+    <div>
+      <div class="brand-name">Malagana Rooftop</div>
+      <div class="brand-sub">Dashboard de Compras</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="ts" id="tsLabel"></span>
+    <div class="dot-live"></div>
+    <button class="btn-refresh" onclick="recargar()">↺ Actualizar</button>
+  </div>
+</header>
+
+<div class="error-box" id="errorBox"></div>
+
+<!-- ── Tab switcher ── -->
+<div class="tab-wrap">
+  <button class="tab-btn active" onclick="setTab('compras')">📊 Compras</button>
+  <button class="tab-btn"        onclick="setTab('recetas')">📋 Recetas</button>
+  <button class="tab-btn" id="tabBtnVentas" style="display:none;" onclick="setTab('ventas')">💰 Ventas</button>
+</div>
+
+<!-- ══════════════════ SECCIÓN COMPRAS ══════════════════ -->
+<div class="section active" id="secCompras">
+
+<!-- ── Pills de mes ── -->
+<div class="mes-wrap">
+  <div class="mes-scroll" id="mesPills"></div>
+</div>
+
+<!-- ── Filtros de categoría ── -->
+<div class="cat-wrap">
+  <div class="cat-scroll">
+    <span class="filter-label">Categoría:</span>
+    <button class="cat-pill active" data-cat="Todos"          onclick="setCategoria('Todos')">Todos</button>
+    <button class="cat-pill"        data-cat="Alimentos"      onclick="setCategoria('Alimentos')">🥩 Alimentos</button>
+    <button class="cat-pill"        data-cat="Bebidas"        onclick="setCategoria('Bebidas')">🍺 Bebidas</button>
+    <button class="cat-pill"        data-cat="Operativos"     onclick="setCategoria('Operativos')">🧴 Operativos</button>
+    <button class="cat-pill"        data-cat="Activos"        onclick="setCategoria('Activos')">🔧 Activos</button>
+    <button class="cat-pill"        data-cat="Sin clasificar" onclick="setCategoria('Sin clasificar')">❓ Sin clasificar</button>
+  </div>
+</div>
+
+<!-- ── Filtro de proveedor ── -->
+<div class="prov-wrap" id="provWrap">
+  <div class="prov-scroll">
+    <span class="filter-label">Proveedor:</span>
+    <div id="provPills" style="display:flex;gap:6px;flex-wrap:nowrap;"></div>
+  </div>
+</div>
+
+<!-- ── Rango de fechas ── -->
+<div class="date-wrap">
+  <div class="date-scroll">
+    <span class="filter-label">Período:</span>
+    <input type="date" id="inputDesde" class="date-input" onchange="onDesdeChange()" title="Desde">
+    <span class="date-sep">→</span>
+    <input type="date" id="inputHasta" class="date-input" onchange="onHastaChange()" title="Hasta">
+    <button class="date-clear" id="dateClearBtn" onclick="clearFechas()" title="Limpiar rango">✕</button>
+  </div>
+</div>
+
+<!-- ── Banner sin clasificar ── -->
+<div class="sincat-banner" id="sincatBanner">
+  <span class="sincat-num" id="sincatNum">0</span>
+  <span>producto(s) sin categoría —
+    <span class="sincat-link" onclick="setCategoria('Sin clasificar')">ver aquí</span>
+    o clasifícalos en la hoja <strong>Categorias</strong> del Sheet
+  </span>
+</div>
+
+<!-- ── Banner facturas con error ── -->
+<div class="fallos-banner" id="fallosBanner" onclick="abrirModalFallos()">
+  <span>⚠️</span>
+  <span><span class="fallos-num" id="fallosNum">0</span> factura(s) no se pudieron registrar — pueden afectar los totales
+    <span class="fallos-irr" id="fallosIrrLabel"></span>
+  </span>
+  <span style="margin-left:auto;color:#e05555;font-size:10px;">ver detalle →</span>
+</div>
+
+<!-- ── Modal detalle de fallos ── -->
+<div class="fallos-modal-overlay" id="fallosModalOverlay" onclick="cerrarModalFallos(event)">
+  <div class="fallos-modal">
+    <button class="fallos-modal-close" onclick="cerrarModalFallos()">✕</button>
+    <h3>⚠️ Facturas sin registrar</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 16px;">
+      Estos archivos están en Drive pero no entraron al Sheet. Corré <strong>reprocesarFallos()</strong>
+      en Apps Script para reintentarlos. Los "Irresolvables" requieren revisión manual.
+    </p>
+    <div id="fallosModalBody"></div>
+  </div>
+</div>
+
+<main class="main">
+
+  <div class="periodo-row">
+    <span class="periodo-label" id="periodoLabel">Cargando...</span>
+    <div class="active-badges">
+      <span class="cat-badge" id="catBadge"></span>
+      <span class="prov-badge" id="provBadge" onclick="clearProveedor()">
+        <span id="provBadgeText"></span>
+        <span class="prov-badge-x">✕</span>
+      </span>
+      <span class="date-badge" id="dateBadge" onclick="clearFechas()">
+        <span id="dateBadgeText"></span>
+        <span class="date-badge-x">✕</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <p class="kpi-label">Total gastado</p>
+      <p class="kpi-value gold" id="kpiTotal">—</p>
+      <p class="kpi-sub" id="kpiTotalSub">COP</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Facturas</p>
+      <p class="kpi-value" id="kpiFacturas">—</p>
+      <p class="kpi-sub" id="kpiFacturasSub">procesadas</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Proveedores</p>
+      <p class="kpi-value" id="kpiProveedores">—</p>
+      <p class="kpi-sub">activos</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Insumos únicos</p>
+      <p class="kpi-value" id="kpiProductos">—</p>
+      <p class="kpi-sub">referencias</p>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="card">
+      <p class="card-title">
+        Gasto por día
+        <span class="card-hint">← clic en una barra para ver el detalle</span>
+      </p>
+      <div style="position:relative;width:100%;height:200px;">
+        <canvas id="chartDia" role="img" aria-label="Gasto diario en COP"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">
+        Por proveedor
+        <span class="card-hint">← clic para filtrar</span>
+      </p>
+      <div class="legend" id="chartDistLegend"></div>
+      <div style="position:relative;width:100%;height:155px;">
+        <canvas id="chartDist" role="img" aria-label="Distribución de gasto por proveedor"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="card">
+      <p class="card-title">
+        Top proveedores
+        <span class="card-hint">← clic para filtrar</span>
+      </p>
+      <div class="prov-list" id="provList"><p class="empty">Sin datos</p></div>
+    </div>
+    <div class="card">
+      <p class="card-title">Insumos más costosos</p>
+      <div class="ins-list" id="insumoList"><p class="empty">Sin datos</p></div>
+    </div>
+  </div>
+
+  <p class="footer" id="footer">Malagana Rooftop · Dashboard de Compras</p>
+
+</main>
+
+</div><!-- /secCompras -->
+
+<!-- ══════════════════ SECCIÓN RECETAS ══════════════════ -->
+<div class="section" id="secRecetas">
+
+  <!-- Categoría pills -->
+  <div class="rcat-wrap">
+    <div class="rcat-scroll" id="rcatPills"></div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="rsearch-wrap">
+    <input type="text" class="rsearch-input" id="rsearchInput" placeholder="🔍 Buscar plato o ingrediente..." oninput="filtrarRecetas()">
+  </div>
+
+  <!-- Nuevo plato -->
+  <div class="rtoolbar">
+    <button class="btn-nuevo-plato" onclick="abrirModalNuevoPlato()">+ Nuevo plato</button>
+  </div>
+
+  <!-- Grid de cards -->
+  <div class="recetas-main">
+    <div class="recetas-grid" id="recetasGrid"></div>
+  </div>
+
+</div><!-- /secRecetas -->
+
+<!-- ══════════════════ SECCIÓN VENTAS (Fase 2) ══════════════════ -->
+<div class="section" id="secVentas">
+<main class="main">
+
+  <div class="mes-scroll" id="ventasMesPills" style="margin-bottom:14px;"></div>
+
+  <div class="periodo-row">
+    <span class="periodo-label" id="ventasPeriodoLabel">Cargando...</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <p class="kpi-label">Ingresos</p>
+      <p class="kpi-value gold" id="kpiVentasIngresos">—</p>
+      <p class="kpi-sub">COP, período mostrado</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Costo insumo teórico</p>
+      <p class="kpi-value" id="kpiVentasCosto">—</p>
+      <p class="kpi-sub">COP, período mostrado</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">% Costo insumo</p>
+      <p class="kpi-value" id="kpiVentasPct">—</p>
+      <p class="kpi-sub">promedio diario mostrado</p>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Cobertura del mapeo</p>
+      <p class="kpi-value" id="kpiVentasCobertura">—</p>
+      <p class="kpi-sub">del consumo ya valorizado</p>
+    </div>
+  </div>
+
+  <div class="sincat-banner" id="ventasCoberturaBanner" style="display:none;">
+    <span>⚠️ El % de costo de insumo de arriba está subestimado — divídelo por la cobertura para una estimación más real. Completá <strong>Mapeo_Costos</strong> para que suba.</span>
+  </div>
+
+  <div class="charts-row">
+    <div class="card">
+      <p class="card-title">Ingresos por día</p>
+      <div style="position:relative;width:100%;height:200px;">
+        <canvas id="chartVentasDia" role="img" aria-label="Ingresos diarios en COP"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">
+        % Costo de insumo por día
+        <span class="card-hint">línea punteada = promedio del período</span>
+      </p>
+      <div style="position:relative;width:100%;height:200px;">
+        <canvas id="chartVentasCosto" role="img" aria-label="Porcentaje de costo de insumo por día"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="card" style="grid-column:1 / -1;">
+      <p class="card-title">Platos más vendidos <span class="card-hint">mismo período que arriba</span></p>
+      <div class="ins-list" id="ventasTopPlatos"><p class="empty">Sin datos</p></div>
+    </div>
+  </div>
+
+  <p class="footer">Malagana Rooftop · Ventas vs. costo de insumo (Fase 2)</p>
+
+</main>
+</div><!-- /secVentas -->
+
+<!-- ══════════════════ MODAL DRILL-DOWN ══════════════════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">—</div>
+        <div class="modal-subtitle" id="modalSubtitle">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()" title="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbxq7HmipyQ_plogDzfgNuwYoCYzNVmS_maZD9yeG0UlKlh_0cX9sWe_K3sSmVp696bAGA/exec';
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+let __tabActivo        = 'compras';
+let __recetas          = null;    // datos de recetas { Categoría: [{nombre, ingredientes}] }
+let __rcatActiva       = 'Todas';
+let __modalCat         = null;    // categoría del plato abierto en el modal
+let __modalPlato       = null;    // nombre del plato abierto en el modal
+let __data             = null;    // todos los meses cacheados
+let __mesActivo        = null;    // key del mes seleccionado ("2026-06")
+let __categoriasActivas = new Set(); // vacío = Todos
+let __proveedorActivo  = null;    // nombre exacto del proveedor, o null = todos
+let __fechaDesde       = null;    // YYYY-MM-DD o null
+let __fechaHasta       = null;    // YYYY-MM-DD o null
+let __diasActivos      = [];      // array {fecha, total} para el click handler del chart
+let chartDia           = null;
+let chartDist          = null;
+let __ventas           = null;    // datos de la pestaña Ventas (Fase 2), o null si no hay hojas todavía
+let __ventasMesActivo  = null;    // key "2026-09" del mes elegido en Ventas, o null = Todos
+let chartVentasDia     = null;
+let chartVentasCosto   = null;
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  if (!API_URL) {
+    showError('Configura API_URL en el script de dashboard.html con la URL de tu Web App.');
+    return;
+  }
+  cargarDatos();
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+});
+
+function cargarDatos() {
+  setLoading(true);
+  hideError();
+
+  const cbName = '__mlg_' + Date.now();
+  const script = document.createElement('script');
+
+  window[cbName] = function(data) {
+    delete window[cbName];
+    document.body.removeChild(script);
+    setLoading(false);
+
+    if (data.error) { showError('Error del servidor: ' + data.error); return; }
+
+    __data    = data;
+    __recetas = data.recetas || {};
+    __ventas  = data.ventas || null;
+    renderPills(data.meses);
+    if (data.meses.length > 0) setMes(data.meses[data.meses.length - 1].key);
+    inicializarRecetas();
+    inicializarVentas();
+
+    const ts = new Date(data.generadoEn);
+    document.getElementById('tsLabel').textContent =
+      'Actualizado ' + ts.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
+  };
+
+  script.onerror = function() {
+    delete window[cbName];
+    document.body.removeChild(script);
+    setLoading(false);
+    showError('No se pudo conectar con el servidor. Verifica que el Web App esté desplegado con acceso "Todos".');
+  };
+
+  script.src = API_URL + '?callback=' + cbName + '&_v=' + Date.now();
+  document.body.appendChild(script);
+}
+
+function recargar() {
+  if (!API_URL) return;
+  cargarDatos();
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function setTab(tab) {
+  __tabActivo = tab;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'compras') || (i === 1 && tab === 'recetas') || (i === 2 && tab === 'ventas'));
+  });
+  document.getElementById('secCompras').classList.toggle('active', tab === 'compras');
+  document.getElementById('secRecetas').classList.toggle('active', tab === 'recetas');
+  document.getElementById('secVentas').classList.toggle('active', tab === 'ventas');
+}
+
+// ============================================================
+// RECETAS
+// ============================================================
+function inicializarRecetas() {
+  if (!__recetas) return;
+  const cats = Object.keys(__recetas);
+
+  // Pills de categoría (+ lápiz para renombrar cada una)
+  const wrap = document.getElementById('rcatPills');
+  const todas = `<button class="rcat-pill active" onclick="setRcat('Todas')">Todas</button>`;
+  const pills = cats.map(c =>
+    `<span class="rcat-pill-wrap">
+      <button class="rcat-pill" onclick="setRcat('${escJS(c)}')">${c}</button>
+      <button class="rcat-edit-icon" title="Renombrar categoría" onclick="event.stopPropagation();renombrarCategoria('${escJS(c)}')">✏️</button>
+    </span>`
+  ).join('');
+  wrap.innerHTML = todas + pills;
+
+  // Reafirma la pill activa (por si veníamos de un renombre)
+  document.querySelectorAll('.rcat-pill').forEach(p => {
+    p.classList.toggle('active',
+      (__rcatActiva === 'Todas' && p.textContent === 'Todas') ||
+      p.textContent === __rcatActiva
+    );
+  });
+
+  filtrarRecetas();
+}
+
+function setRcat(cat) {
+  __rcatActiva = cat;
+  document.querySelectorAll('.rcat-pill').forEach(p => {
+    p.classList.toggle('active',
+      (cat === 'Todas' && p.textContent === 'Todas') ||
+      p.textContent === cat
+    );
+  });
+  filtrarRecetas();
+}
+
+function filtrarRecetas() {
+  const query = (document.getElementById('rsearchInput').value || '').toLowerCase().trim();
+  const grid  = document.getElementById('recetasGrid');
+  const cards = [];
+
+  Object.entries(__recetas).forEach(function([cat, platos]) {
+    if (__rcatActiva !== 'Todas' && cat !== __rcatActiva) return;
+    platos.forEach(function(plato) {
+      if (query) {
+        const enNombre = plato.nombre.toLowerCase().includes(query);
+        const enIngr   = plato.ingredientes.some(i => i.nombre.toLowerCase().includes(query));
+        if (!enNombre && !enIngr) return;
+      }
+      cards.push({ cat, plato });
+    });
+  });
+
+  if (!cards.length) {
+    grid.innerHTML = '<p class="empty" style="padding:40px 0;grid-column:1/-1">Sin resultados</p>';
+    return;
+  }
+
+  grid.innerHTML = cards.map(({ cat, plato }) =>
+    `<div class="receta-card" onclick="openRecetaModal('${escJS(cat)}','${escJS(plato.nombre)}')">
+      <div class="rcard-cat">${cat}</div>
+      <div class="rcard-nombre">${plato.nombre}</div>
+      <div class="rcard-count"><span>${plato.ingredientes.length}</span> ingredientes</div>
+    </div>`
+  ).join('');
+}
+
+function openRecetaModal(cat, nombrePlato) {
+  const catData = __recetas[cat];
+  if (!catData) return;
+  const plato = catData.find(p => p.nombre === nombrePlato);
+  if (!plato) return;
+
+  __modalCat   = cat;
+  __modalPlato = nombrePlato;
+
+  document.getElementById('modalTitle').textContent = plato.nombre;
+  renderModalReceta();
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function renderModalReceta() {
+  const catData = __recetas[__modalCat];
+  const plato   = catData && catData.find(p => p.nombre === __modalPlato);
+  if (!plato) { closeModal(); return; }
+
+  document.getElementById('modalTitle').textContent = plato.nombre;
+  document.getElementById('modalSubtitle').textContent = __modalCat + ' · ' + plato.ingredientes.length + ' ingredientes';
+
+  let html = `<div class="rmodal-actions">
+      <button onclick="renombrarPlatoActual()">✏️ Renombrar plato</button>
+      <button class="danger" onclick="eliminarPlatoActual()">🗑️ Eliminar plato</button>
+    </div>
+    <table class="rmodal-table">
+    <thead><tr>
+      <th>Ingrediente</th>
+      <th class="right">Cantidad</th>
+      <th>Unidad</th>
+      <th></th>
+    </tr></thead><tbody>`;
+
+  plato.ingredientes.forEach(function(ingr) {
+    html += `<tr>
+      <td>${ingr.nombre}</td>
+      <td class="right">${ingr.cantidad > 0 ? ingr.cantidad : '—'}</td>
+      <td>${ingr.unidad || '—'}</td>
+      <td class="actions">
+        <button class="ricon-btn" title="Editar" onclick="editarIngrediente('${escJS(ingr.nombre)}', ${Number(ingr.cantidad) || 0}, '${escJS(ingr.unidad)}')">✏️</button>
+        <button class="ricon-btn danger" title="Eliminar" onclick="eliminarIngrediente('${escJS(ingr.nombre)}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>
+    <p class="rmodal-ingr-count">
+      ${plato.ingredientes.length} ingrediente(s) en esta receta
+      <button class="ringr-add-btn" style="margin-left:10px;" onclick="mostrarFormNuevoIngrediente()">+ Agregar ingrediente</button>
+    </p>`;
+
+  document.getElementById('modalBody').innerHTML = html;
+}
+
+// ── Llamada JSONP genérica para acciones de escritura ──────
+function llamarAccionReceta(params, onSuccess) {
+  const cbName = '__mlg_act_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  const script = document.createElement('script');
+
+  window[cbName] = function(data) {
+    delete window[cbName];
+    document.body.removeChild(script);
+    if (data.error) { alert('Error: ' + data.error); return; }
+    __recetas = data.recetas || {};
+    onSuccess && onSuccess();
+  };
+
+  script.onerror = function() {
+    delete window[cbName];
+    document.body.removeChild(script);
+    alert('No se pudo conectar con el servidor.');
+  };
+
+  const qs = Object.keys(params).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+
+  script.src = API_URL + '?callback=' + cbName + '&_v=' + Date.now() + '&' + qs;
+  document.body.appendChild(script);
+}
+
+function editarIngrediente(nombre, cantidad, unidad) {
+  const nuevoNombre = prompt('Nombre del ingrediente:', nombre);
+  if (nuevoNombre === null || !nuevoNombre.trim()) return;
+  const cantidadStr = prompt('Cantidad:', cantidad || 0);
+  if (cantidadStr === null) return;
+  const nuevaUnidad = prompt('Unidad:', unidad || '');
+  if (nuevaUnidad === null) return;
+
+  llamarAccionReceta({
+    accion: 'updateIngrediente',
+    categoria: __modalCat, plato: __modalPlato,
+    ingredienteOriginal: nombre, ingredienteNuevo: nuevoNombre.trim(),
+    cantidad: parseFloat(cantidadStr) || 0, unidad: nuevaUnidad.trim()
+  }, function() { renderModalReceta(); filtrarRecetas(); });
+}
+
+function eliminarIngrediente(nombre) {
+  const catData = __recetas[__modalCat];
+  const plato   = catData && catData.find(p => p.nombre === __modalPlato);
+
+  if (plato && plato.ingredientes.length === 1) {
+    if (!confirm('Es el único ingrediente de "' + __modalPlato + '". Eliminarlo borra todo el plato. ¿Continuar?')) return;
+    eliminarPlatoActual();
+    return;
+  }
+  if (!confirm('¿Eliminar "' + nombre + '" de la receta?')) return;
+
+  llamarAccionReceta({
+    accion: 'deleteIngrediente', categoria: __modalCat, plato: __modalPlato, ingrediente: nombre
+  }, function() { renderModalReceta(); filtrarRecetas(); });
+}
+
+function mostrarFormNuevoIngrediente() {
+  const nombre = prompt('Nombre del nuevo ingrediente:');
+  if (!nombre || !nombre.trim()) return;
+  const cantidadStr = prompt('Cantidad:', '0');
+  if (cantidadStr === null) return;
+  const unidad = prompt('Unidad (gr, ml, und...):', '');
+  if (unidad === null) return;
+
+  llamarAccionReceta({
+    accion: 'addIngrediente', categoria: __modalCat, plato: __modalPlato,
+    ingrediente: nombre.trim(), cantidad: parseFloat(cantidadStr) || 0, unidad: unidad.trim()
+  }, function() { renderModalReceta(); filtrarRecetas(); });
+}
+
+function renombrarPlatoActual() {
+  const nuevo = prompt('Nuevo nombre del plato:', __modalPlato);
+  if (!nuevo || !nuevo.trim() || nuevo.trim() === __modalPlato) return;
+
+  llamarAccionReceta({
+    accion: 'renamePlato', categoria: __modalCat, platoOriginal: __modalPlato, platoNuevo: nuevo.trim()
+  }, function() {
+    __modalPlato = nuevo.trim();
+    renderModalReceta();
+    filtrarRecetas();
+  });
+}
+
+function eliminarPlatoActual() {
+  if (!confirm('¿Eliminar el plato "' + __modalPlato + '" y todos sus ingredientes? No se puede deshacer.')) return;
+
+  llamarAccionReceta({
+    accion: 'deletePlato', categoria: __modalCat, plato: __modalPlato
+  }, function() { closeModal(); filtrarRecetas(); });
+}
+
+function renombrarCategoria(cat) {
+  const nueva = prompt('Nuevo nombre para la categoría "' + cat + '":', cat);
+  if (!nueva || !nueva.trim() || nueva.trim() === cat) return;
+
+  llamarAccionReceta({
+    accion: 'renameCategoria', categoriaOriginal: cat, categoriaNueva: nueva.trim()
+  }, function() {
+    if (__rcatActiva === cat) __rcatActiva = nueva.trim();
+    inicializarRecetas();
+  });
+}
+
+function abrirModalNuevoPlato() {
+  const cats    = Object.keys(__recetas);
+  const catsTxt = cats.length ? '\n\nCategorías existentes: ' + cats.join(', ') : '';
+  const categoria = prompt('Categoría del plato (usa una existente o escribe una nueva):' + catsTxt);
+  if (!categoria || !categoria.trim()) return;
+  const nombre = prompt('Nombre del plato:');
+  if (!nombre || !nombre.trim()) return;
+
+  const ingredientes = [];
+  let seguir = true;
+  while (seguir) {
+    const nombreIngr = prompt('Ingrediente #' + (ingredientes.length + 1) + ' (dejar vacío para terminar):');
+    if (!nombreIngr || !nombreIngr.trim()) { seguir = false; break; }
+    const cantidadStr = prompt('Cantidad de "' + nombreIngr + '":', '0');
+    const unidad = prompt('Unidad de "' + nombreIngr + '":', '');
+    ingredientes.push({ nombre: nombreIngr.trim(), cantidad: parseFloat(cantidadStr) || 0, unidad: (unidad || '').trim() });
+  }
+  if (!ingredientes.length) { alert('El plato necesita al menos un ingrediente. No se creó.'); return; }
+
+  llamarAccionReceta({
+    accion: 'addPlato', categoria: categoria.trim(), plato: nombre.trim(),
+    ingredientes: JSON.stringify(ingredientes)
+  }, function() {
+    inicializarRecetas();
+    setRcat(categoria.trim());
+  });
+}
+
+// ============================================================
+// CAMBIO DE MES — resetea proveedor y fechas
+// ============================================================
+function setMes(key) {
+  __mesActivo       = key;
+  __proveedorActivo = null;
+  __fechaDesde      = null;
+  __fechaHasta      = null;
+
+  document.querySelectorAll('.mes-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.key === key);
+  });
+
+  const mes = __data.meses.find(m => m.key === key);
+  if (!mes) return;
+
+  // Badge sin clasificar
+  const nSinCat = (mes.sinClasificar || []).length;
+  const banner  = document.getElementById('sincatBanner');
+  if (nSinCat > 0) {
+    document.getElementById('sincatNum').textContent = nSinCat;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+
+  // Banner fallos (se muestra una sola vez al cargar, no depende del mes)
+  actualizarBannerFallos();
+
+  initDateRange(mes);
+  renderProvPills(mes);
+  renderPeriodo(mes);
+  renderConFiltro(mes);
+}
+
+// ============================================================
+// CAMBIO DE CATEGORÍA — multi-select
+// ============================================================
+const CAT_EMOJIS  = { Alimentos:'🥩', Bebidas:'🍺', Operativos:'🧴', Activos:'🔧', 'Sin clasificar':'❓' };
+const CAT_COLORS  = { Alimentos:'#E06B4C', Bebidas:'#5DCAA5', Operativos:'#7F77DD', Activos:'#378ADD', 'Sin clasificar':'#C8922A' };
+const CATS_TODAS  = ['Alimentos','Bebidas','Operativos','Activos','Sin clasificar'];
+
+function setCategoria(cat) {
+  if (cat === 'Todos') {
+    __categoriasActivas.clear();
+  } else {
+    if (__categoriasActivas.has(cat)) {
+      __categoriasActivas.delete(cat);
+      // Si queda vacío, volvemos a Todos
+      if (__categoriasActivas.size === 0) __categoriasActivas.clear();
+    } else {
+      __categoriasActivas.add(cat);
+      // Si están todas seleccionadas individualmente = Todos
+      if (CATS_TODAS.every(c => __categoriasActivas.has(c))) __categoriasActivas.clear();
+    }
+  }
+
+  actualizarCatPills();
+  actualizarCatBadge();
+  if (!__data || !__mesActivo) return;
+  const mes = __data.meses.find(m => m.key === __mesActivo);
+  if (mes) renderConFiltro(mes);
+}
+
+function actualizarCatPills() {
+  const isTodos = __categoriasActivas.size === 0;
+  document.querySelectorAll('.cat-pill').forEach(p => {
+    const cat = p.dataset.cat;
+    if (cat === 'Todos') {
+      p.classList.toggle('active', isTodos);
+    } else {
+      p.classList.toggle('active', __categoriasActivas.has(cat));
+    }
+  });
+}
+
+function actualizarCatBadge() {
+  const badge = document.getElementById('catBadge');
+  if (__categoriasActivas.size === 0) {
+    badge.classList.remove('show');
+    return;
+  }
+  const cats = Array.from(__categoriasActivas);
+  badge.textContent = cats.map(c => (CAT_EMOJIS[c] || '') + ' ' + c).join(' · ');
+  badge.className = 'cat-badge show';
+  badge.style.color = cats.length === 1 ? (CAT_COLORS[cats[0]] || 'var(--gold)') : 'var(--text)';
+  badge.style.background = 'rgba(255,255,255,0.06)';
+  badge.style.border = '1px solid rgba(255,255,255,0.2)';
+}
+
+// ============================================================
+// FILTRO DE PROVEEDOR
+// ============================================================
+function setProveedor(nombre) {
+  // Toggle: mismo proveedor lo desactiva
+  __proveedorActivo = (__proveedorActivo === nombre) ? null : nombre;
+  actualizarProvPills();
+  actualizarProvBadge();
+  triggerRerender();
+}
+
+function clearProveedor() {
+  __proveedorActivo = null;
+  actualizarProvPills();
+  actualizarProvBadge();
+  triggerRerender();
+}
+
+function actualizarProvPills() {
+  document.querySelectorAll('.prov-pill').forEach(p => {
+    const isActive = p.dataset.prov
+      ? p.dataset.prov === (__proveedorActivo || '')
+      : !__proveedorActivo;
+    p.classList.toggle('active', isActive);
+  });
+}
+
+function actualizarProvBadge() {
+  const badge = document.getElementById('provBadge');
+  if (__proveedorActivo) {
+    document.getElementById('provBadgeText').textContent =
+      '🏪 ' + fmtNombreCorto(fmtNombreProveedor(__proveedorActivo), 24);
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+// ============================================================
+// FILTRO DE FECHAS
+// ============================================================
+function onDesdeChange() {
+  __fechaDesde = document.getElementById('inputDesde').value || null;
+  // Si desde > hasta, ajustar hasta automáticamente
+  if (__fechaDesde && __fechaHasta && __fechaDesde > __fechaHasta) {
+    __fechaHasta = __fechaDesde;
+    document.getElementById('inputHasta').value = __fechaDesde;
+  }
+  actualizarFiltroClases();
+  actualizarDateBadge();
+  triggerRerender();
+}
+
+function onHastaChange() {
+  __fechaHasta = document.getElementById('inputHasta').value || null;
+  // Si hasta < desde, ajustar desde automáticamente
+  if (__fechaDesde && __fechaHasta && __fechaHasta < __fechaDesde) {
+    __fechaDesde = __fechaHasta;
+    document.getElementById('inputDesde').value = __fechaHasta;
+  }
+  actualizarFiltroClases();
+  actualizarDateBadge();
+  triggerRerender();
+}
+
+// ── Fallos banner y modal ────────────────────────────────────
+function actualizarBannerFallos() {
+  const fallos  = (__data && __data.fallos) ? __data.fallos : null;
+  const banner  = document.getElementById('fallosBanner');
+  if (!fallos || (fallos.pendientes === 0 && fallos.irresolvables === 0)) {
+    banner.classList.remove('show');
+    return;
+  }
+  const total = fallos.pendientes + fallos.irresolvables;
+  document.getElementById('fallosNum').textContent = total;
+  const irrLabel = document.getElementById('fallosIrrLabel');
+  irrLabel.textContent = fallos.irresolvables > 0
+    ? '(' + fallos.irresolvables + ' irresolvable' + (fallos.irresolvables > 1 ? 's' : '') + ')'
+    : '';
+  banner.classList.add('show');
+}
+
+function abrirModalFallos() {
+  const fallos = (__data && __data.fallos) ? __data.fallos : null;
+  if (!fallos || !fallos.items || fallos.items.length === 0) return;
+
+  const body = document.getElementById('fallosModalBody');
+  body.innerHTML = fallos.items.map(function(f) {
+    const claseEstado = f.estado === 'Irresolvable' ? 'estado-irresolvable' : 'estado-pendiente';
+    return '<div class="fallos-item">' +
+      '<div class="fallos-item-nombre">' + escHTML(f.nombre) + '</div>' +
+      '<div class="fallos-item-error">Error: ' + escHTML(f.error) + '</div>' +
+      '<div style="margin-top:4px;display:flex;align-items:center;gap:8px;">' +
+        '<span class="fallos-item-estado ' + claseEstado + '">' + escHTML(f.estado) + '</span>' +
+        '<span style="font-size:10px;">' + f.intentos + ' intento(s)</span>' +
+        (f.url ? '<a href="' + f.url + '" target="_blank" style="color:var(--gold);font-size:10px;">ver en Drive ↗</a>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('fallosModalOverlay').classList.add('show');
+}
+
+function cerrarModalFallos(e) {
+  if (e && e.target !== document.getElementById('fallosModalOverlay') && !e.target.classList.contains('fallos-modal-close')) return;
+  document.getElementById('fallosModalOverlay').classList.remove('show');
+}
+
+function escHTML(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function clearFechas() {
+  __fechaDesde = null;
+  __fechaHasta = null;
+  document.getElementById('inputDesde').value = '';
+  document.getElementById('inputHasta').value = '';
+  actualizarFiltroClases();
+  actualizarDateBadge();
+  triggerRerender();
+}
+
+function actualizarFiltroClases() {
+  document.getElementById('inputDesde').classList.toggle('active', !!__fechaDesde);
+  document.getElementById('inputHasta').classList.toggle('active', !!__fechaHasta);
+  const btn = document.getElementById('dateClearBtn');
+  if (__fechaDesde || __fechaHasta) btn.classList.add('show');
+  else btn.classList.remove('show');
+}
+
+function actualizarDateBadge() {
+  const badge = document.getElementById('dateBadge');
+  if (__fechaDesde || __fechaHasta) {
+    const desde = __fechaDesde ? fmtFechaCorta(__fechaDesde) : '...';
+    const hasta = __fechaHasta ? fmtFechaCorta(__fechaHasta) : '...';
+    document.getElementById('dateBadgeText').textContent =
+      (__fechaDesde === __fechaHasta && __fechaDesde)
+        ? '📅 ' + desde
+        : '📅 ' + desde + ' → ' + hasta;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+function initDateRange(mes) {
+  const inputDesde = document.getElementById('inputDesde');
+  const inputHasta = document.getElementById('inputHasta');
+  inputDesde.min = mes.periodoDesde || '';
+  inputDesde.max = mes.periodoHasta || '';
+  inputHasta.min = mes.periodoDesde || '';
+  inputHasta.max = mes.periodoHasta || '';
+  inputDesde.value = '';
+  inputHasta.value = '';
+  document.getElementById('dateClearBtn').classList.remove('show');
+  document.getElementById('inputDesde').classList.remove('active');
+  document.getElementById('inputHasta').classList.remove('active');
+  document.getElementById('dateBadge').classList.remove('show');
+}
+
+// ============================================================
+// PILLS DE PROVEEDOR — top 8 del mes completo
+// ============================================================
+function renderProvPills(mes) {
+  const porProv = {};
+  Object.values(mes.detallesPorDia || {}).forEach(items => {
+    items.forEach(item => {
+      porProv[item.proveedor] = (porProv[item.proveedor] || 0) + item.total;
+    });
+  });
+  const top = Object.entries(porProv)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([nombre]) => nombre);
+
+  const wrap = document.getElementById('provPills');
+  if (!top.length) { wrap.innerHTML = ''; return; }
+
+  const todosBtn = `<button class="prov-pill active" data-prov="" onclick="clearProveedor()">Todos</button>`;
+  const pills = top.map(nombre =>
+    `<button class="prov-pill" data-prov="${escAttr(nombre)}" onclick="setProveedor('${escJS(nombre)}')">${fmtNombreCorto(fmtNombreProveedor(nombre), 18)}</button>`
+  ).join('');
+
+  wrap.innerHTML = todosBtn + pills;
+}
+
+// ============================================================
+// HELPER: re-renderizar con filtros actuales
+// ============================================================
+function triggerRerender() {
+  if (!__data || !__mesActivo) return;
+  const mes = __data.meses.find(m => m.key === __mesActivo);
+  if (mes) renderConFiltro(mes);
+}
+
+// ============================================================
+// RENDER CON FILTROS
+// ============================================================
+function renderConFiltro(mes) {
+  // Items con todos los filtros: para KPIs, gráfica día, top insumos
+  const items = getItemsFiltrados(mes);
+
+  // Items solo por categoría + fecha (sin filtro de proveedor): para donut y lista de proveedores
+  const itemsCat = getItemsPorCategoria(mes);
+
+  // ── Calcular desde items filtrados ──────────────
+  const gastoPorDia    = {};
+  const proveedoresSet = new Set();
+  const productos      = {};
+  let totalGastado     = 0;
+
+  items.forEach(item => {
+    gastoPorDia[item.fecha]     = (gastoPorDia[item.fecha]      || 0) + item.total;
+    proveedoresSet.add(item.proveedor);
+    if (!productos[item.producto]) productos[item.producto] = { compras: 0, total: 0 };
+    productos[item.producto].compras++;
+    productos[item.producto].total += item.total;
+    totalGastado += item.total;
+  });
+
+  // ── Calcular proveedores desde itemsCat (sin filtro de proveedor) ──
+  const porProveedor = {};
+  itemsCat.forEach(item => {
+    porProveedor[item.proveedor] = (porProveedor[item.proveedor] || 0) + item.total;
+  });
+
+  const provArr = Object.entries(porProveedor)
+    .sort((a, b) => b[1] - a[1])
+    .map(([nombre, total]) => ({ nombre, total }));
+
+  const prodArr = Object.entries(productos)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 10)
+    .map(([nombre, v]) => ({ nombre, compras: v.compras, total: v.total }));
+
+  const gastoDiaArr = rellenarDiasCliente(gastoPorDia, mes.periodoDesde, mes.periodoHasta);
+
+  // ── KPIs ──────────────────────────────────────
+  const isFiltrado = __categoriasActivas.size > 0 || __proveedorActivo || __fechaDesde || __fechaHasta;
+  animNum('kpiTotal',       fmtMillions(totalGastado));
+  animNum('kpiFacturas',    mes.cantidadFacturas);
+  animNum('kpiProveedores', proveedoresSet.size);
+  animNum('kpiProductos',   Object.keys(productos).length);
+  document.getElementById('kpiTotalSub').textContent = isFiltrado
+    ? 'COP · filtrado'
+    : 'COP · ' + fmtK(totalGastado / (mes.cantidadFacturas || 1)) + ' prom/factura';
+  document.getElementById('kpiFacturasSub').textContent = isFiltrado
+    ? mes.cantidadFacturas + ' del mes'
+    : mes.cantidadProveedores + ' proveedores';
+
+  // ── Charts y listas ──────────────────────────
+  renderChartDia(gastoDiaArr);
+  renderChartDist(provArr);
+  renderProveedores(provArr);
+  renderInsumos(prodArr);
+}
+
+// ============================================================
+// HELPERS DE FILTRO
+// ============================================================
+
+// Helpers de categoría
+function catPermitida(cat) {
+  return __categoriasActivas.size === 0 || __categoriasActivas.has(cat);
+}
+
+// Todos los filtros: categoría + proveedor + fechas
+function getItemsFiltrados(mes) {
+  const resultado = [];
+  Object.entries(mes.detallesPorDia || {}).forEach(function([fecha, items]) {
+    if (__fechaDesde && fecha < __fechaDesde) return;
+    if (__fechaHasta && fecha > __fechaHasta) return;
+    items.forEach(function(item) {
+      if (!catPermitida(item.categoria)) return;
+      if (__proveedorActivo && item.proveedor !== __proveedorActivo) return;
+      resultado.push(Object.assign({}, item, { fecha }));
+    });
+  });
+  return resultado;
+}
+
+// Solo categoría + fechas (sin filtro de proveedor) — para el donut y la lista de proveedores
+function getItemsPorCategoria(mes) {
+  const resultado = [];
+  Object.entries(mes.detallesPorDia || {}).forEach(function([fecha, items]) {
+    if (__fechaDesde && fecha < __fechaDesde) return;
+    if (__fechaHasta && fecha > __fechaHasta) return;
+    items.forEach(function(item) {
+      if (!catPermitida(item.categoria)) return;
+      resultado.push(Object.assign({}, item, { fecha }));
+    });
+  });
+  return resultado;
+}
+
+function rellenarDiasCliente(mapa, desde, hasta) {
+  if (!desde || !hasta) return [];
+  // Si hay filtro de fechas, usar esas como límites
+  const desdeFinal = __fechaDesde && __fechaDesde > desde ? __fechaDesde : desde;
+  const hastaFinal = __fechaHasta && __fechaHasta < hasta ? __fechaHasta : hasta;
+  const resultado = [];
+  const inicio    = new Date(desdeFinal + 'T12:00:00');
+  const fin       = new Date(hastaFinal + 'T12:00:00');
+  const cursor    = new Date(inicio);
+  while (cursor <= fin) {
+    const iso = cursor.toISOString().slice(0, 10);
+    resultado.push({ fecha: iso, total: mapa[iso] || 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return resultado;
+}
+
+// ============================================================
+// PILLS DE MES
+// ============================================================
+function renderPills(meses) {
+  const wrap = document.getElementById('mesPills');
+  wrap.innerHTML = meses.map(m =>
+    `<button class="mes-pill" data-key="${m.key}" onclick="setMes('${m.key}')">${m.label}</button>`
+  ).join('');
+}
+
+// ============================================================
+// PERIODO
+// ============================================================
+function renderPeriodo(mes) {
+  const lbl = document.getElementById('periodoLabel');
+  if (mes.periodoDesde && mes.periodoHasta) {
+    const desde = fmtFechaLarga(mes.periodoDesde);
+    const hasta = fmtFechaLarga(mes.periodoHasta);
+    lbl.innerHTML = `<strong>${mes.label}</strong> · ${desde} → ${hasta}`;
+  } else {
+    lbl.innerHTML = `<strong>${mes.label}</strong>`;
+  }
+}
+
+// ============================================================
+// CHART — GASTO POR DÍA  (con drill-down al hacer clic)
+// ============================================================
+function renderChartDia(dias) {
+  if (chartDia) chartDia.destroy();
+  if (!dias.length) return;
+
+  __diasActivos = dias;
+
+  const labels = dias.map(d => fmtFechaCorta(d.fecha));
+  const values = dias.map(d => d.total);
+  const maxVal = Math.max(...values, 1);
+
+  chartDia = new Chart(document.getElementById('chartDia'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'COP',
+        data: values,
+        backgroundColor: values.map(v => v === maxVal && v > 0 ? '#C8922A' : 'rgba(200,146,42,0.42)'),
+        hoverBackgroundColor: '#E8A83A',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          callbacks: { label: ctx => ' ' + fmtK(ctx.raw) },
+          displayColors: false
+        }
+      },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 } }, border:{ color:'rgba(255,255,255,0.04)' } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 }, callback: v => v === 0 ? '' : fmtMillions(v) }, border:{ color:'transparent' } }
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const idx     = elements[0].index;
+        const diaData = __diasActivos[idx];
+        if (diaData && diaData.total > 0) openDayModal(diaData.fecha);
+      }
+    }
+  });
+}
+
+// ============================================================
+// CHART — DONUT POR PROVEEDOR (clickeable para filtrar)
+// ============================================================
+const DONUT_COLORS = ['#C8922A','#EF9F27','#5DCAA5','#7F77DD','#378ADD','#D85A30'];
+
+function renderChartDist(proveedores) {
+  if (chartDist) chartDist.destroy();
+  const top = proveedores.slice(0, 5);
+  if (!top.length) return;
+
+  const totalProv = top.reduce((a, p) => a + p.total, 0);
+  const labels    = top.map(p => fmtNombreCorto(p.nombre, 20));
+  const values    = top.map(p => p.total);
+
+  // Highlight segmento activo si hay filtro de proveedor
+  const bgs = top.map((p, i) => {
+    if (!__proveedorActivo || p.nombre === __proveedorActivo) return DONUT_COLORS[i];
+    return DONUT_COLORS[i] + '44'; // opacidad reducida
+  });
+
+  document.getElementById('chartDistLegend').innerHTML = top.map((p, i) =>
+    `<span class="leg ${__proveedorActivo === p.nombre ? 'leg-active' : ''}"
+       onclick="setProveedor('${escJS(p.nombre)}')"
+       style="color:${__proveedorActivo === p.nombre ? DONUT_COLORS[i] : ''}">
+      <span class="leg-dot" style="background:${DONUT_COLORS[i]};${__proveedorActivo && p.nombre !== __proveedorActivo ? 'opacity:.3' : ''}"></span>
+      ${labels[i]} ${Math.round(p.total/totalProv*100)}%
+    </span>`
+  ).join('');
+
+  // Capturar top para el closure del onClick
+  const topSnapshot = top.slice();
+
+  chartDist = new Chart(document.getElementById('chartDist'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: bgs,
+        borderWidth: 2,
+        borderColor: '#141414'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtK(ctx.raw) } }
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        if (topSnapshot[idx]) setProveedor(topSnapshot[idx].nombre);
+      }
+    }
+  });
+}
+
+// ============================================================
+// PROVEEDORES (barras clickeables)
+// ============================================================
+function renderProveedores(proveedores) {
+  const el  = document.getElementById('provList');
+  if (!proveedores.length) { el.innerHTML = '<p class="empty">Sin datos</p>'; return; }
+  const max = proveedores[0].total;
+  el.innerHTML = proveedores.map(p => {
+    const pct      = ((p.total / max) * 100).toFixed(1);
+    const isActive = __proveedorActivo === p.nombre;
+    return `<div class="prov-item ${isActive ? 'prov-active' : ''}" onclick="setProveedor('${escJS(p.nombre)}')">
+      <div class="prov-header">
+        <span class="prov-name">${fmtNombreProveedor(p.nombre)}<span class="prov-tick">✓</span></span>
+        <span class="prov-val">${fmtK(p.total)}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// INSUMOS
+// ============================================================
+function renderInsumos(productos) {
+  const el  = document.getElementById('insumoList');
+  if (!productos.length) { el.innerHTML = '<p class="empty">Sin datos</p>'; return; }
+  const max = productos[0].total;
+  el.innerHTML = productos.map((p, i) => {
+    const pct = ((p.total / max) * 100).toFixed(1);
+    return `<div class="ins-row">
+      <span class="ins-rank">${i+1}</span>
+      <span class="ins-name" title="${p.nombre}">${fmtNombreCorto(p.nombre, 26)}</span>
+      <div class="ins-track"><div class="ins-fill" style="width:${pct}%"></div></div>
+      <span class="ins-val">${fmtK(p.total)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// VENTAS (Fase 2) — ingresos vs. costo de insumo por día
+// ============================================================
+function inicializarVentas() {
+  const btn = document.getElementById('tabBtnVentas');
+  if (!__ventas || !__ventas.porDia || !__ventas.porDia.length) {
+    btn.style.display = 'none';
+    if (__tabActivo === 'ventas') setTab('compras');
+    return;
+  }
+  btn.style.display = '';
+
+  renderVentasMesPills();
+
+  // Por defecto se aterriza en el mes más reciente con datos, igual que Compras;
+  // el usuario puede volver a "Todos" con la pill.
+  const meses = ventasMesesDisponibles();
+  setVentasMes(meses.length ? meses[meses.length - 1] : null);
+}
+
+// ============================================================
+// VENTAS — pills de mes (Todos + un mes por cada mes con datos en porDia)
+// ============================================================
+function ventasMesesDisponibles() {
+  const set = new Set();
+  __ventas.porDia.forEach(d => set.add(d.fecha.slice(0, 7)));
+  return Array.from(set).sort();
+}
+
+function fmtMesLabelKey(key) {
+  const [anio, mes] = key.split('-');
+  const nombre = MESES_LARGO[parseInt(mes, 10) - 1] || key;
+  return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + anio;
+}
+
+function renderVentasMesPills() {
+  const meses = ventasMesesDisponibles();
+  const wrap  = document.getElementById('ventasMesPills');
+  const todosBtn = `<button class="mes-pill" data-key="" onclick="setVentasMes(null)">Todos</button>`;
+  const pills = meses.map(key =>
+    `<button class="mes-pill" data-key="${key}" onclick="setVentasMes('${key}')">${fmtMesLabelKey(key)}</button>`
+  ).join('');
+  wrap.innerHTML = todosBtn + pills;
+}
+
+function setVentasMes(key) {
+  __ventasMesActivo = key;
+  document.querySelectorAll('#ventasMesPills .mes-pill').forEach(p => {
+    p.classList.toggle('active', (p.dataset.key || null) === key);
+  });
+  renderVentasContent();
+}
+
+// ============================================================
+// VENTAS (Fase 2) — ingresos vs. costo de insumo, filtrado por mes o Todos
+// ============================================================
+function renderVentasContent() {
+  const porDia = __ventasMesActivo
+    ? __ventas.porDia.filter(d => d.fecha.slice(0, 7) === __ventasMesActivo)
+    : __ventas.porDia;
+
+  if (!porDia.length) {
+    document.getElementById('ventasPeriodoLabel').textContent = 'Sin datos para este mes';
+    renderChartVentasDia([]);
+    renderChartVentasCosto([], 0);
+    renderTopPlatos([]);
+    return;
+  }
+
+  const dias   = porDia.length;
+  const k = {
+    ingresosTotales:   porDia.reduce((s, d) => s + d.ingresos, 0),
+    costoInsumoTotal:  porDia.reduce((s, d) => s + d.costo, 0),
+    pctCostoPromedio:  porDia.reduce((s, d) => s + d.pctCosto, 0) / dias,
+    coberturaPromedio: porDia.reduce((s, d) => s + d.cobertura, 0) / dias,
+    dias
+  };
+
+  const fechas = porDia.map(d => d.fecha).sort();
+  const desde  = fechas[0], hasta = fechas[fechas.length - 1];
+  document.getElementById('ventasPeriodoLabel').textContent =
+    (__ventasMesActivo ? fmtMesLabelKey(__ventasMesActivo) + ' · ' : '') +
+    fmtFechaLarga(desde) + ' → ' + fmtFechaLarga(hasta) +
+    ' · ' + k.dias + ' día(s)';
+
+  document.getElementById('kpiVentasIngresos').textContent  = fmtK(k.ingresosTotales);
+  document.getElementById('kpiVentasCosto').textContent     = fmtK(k.costoInsumoTotal);
+  document.getElementById('kpiVentasPct').textContent       = (k.pctCostoPromedio * 100).toFixed(1) + '%';
+  document.getElementById('kpiVentasCobertura').textContent = (k.coberturaPromedio * 100).toFixed(0) + '%';
+
+  const banner = document.getElementById('ventasCoberturaBanner');
+  banner.style.display = k.coberturaPromedio < 0.9 ? 'flex' : 'none';
+
+  renderChartVentasDia(porDia);
+  renderChartVentasCosto(porDia, k.pctCostoPromedio);
+
+  // Top platos: si hay filtro de mes, se recalcula con el detalle por día
+  // (ventasPorDiaDetalle); "Todos" usa el acumulado que ya manda el backend.
+  const topPlatos = __ventasMesActivo
+    ? computeTopPlatosVentas(fechas)
+    : __ventas.topPlatos;
+  renderTopPlatos(topPlatos);
+}
+
+function computeTopPlatosVentas(fechas) {
+  const detalle = __ventas.ventasPorDiaDetalle;
+  if (!detalle) return __ventas.topPlatos; // backend viejo sin deploy nuevo: fallback al total del período
+
+  const acc = {};
+  fechas.forEach(fecha => {
+    (detalle[fecha] || []).forEach(p => {
+      if (!acc[p.nombre]) acc[p.nombre] = { cantidad: 0, ingresos: 0 };
+      acc[p.nombre].cantidad += p.cantidad;
+      acc[p.nombre].ingresos += p.ingresos;
+    });
+  });
+  return Object.entries(acc)
+    .sort((a, b) => b[1].ingresos - a[1].ingresos)
+    .slice(0, 10)
+    .map(([nombre, v]) => ({ nombre, cantidad: v.cantidad, ingresos: v.ingresos }));
+}
+
+function renderChartVentasDia(porDia) {
+  if (chartVentasDia) chartVentasDia.destroy();
+  if (!porDia.length) return;
+
+  const labels = porDia.map(d => fmtFechaCorta(d.fecha));
+  const values = porDia.map(d => d.ingresos);
+  const maxVal = Math.max(...values, 1);
+
+  chartVentasDia = new Chart(document.getElementById('chartVentasDia'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Ingresos',
+        data: values,
+        backgroundColor: values.map(v => v === maxVal && v > 0 ? '#5DCAA5' : 'rgba(93,202,165,0.42)'),
+        hoverBackgroundColor: '#7EDDBC',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtK(ctx.raw) }, displayColors: false }
+      },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 } }, border:{ color:'rgba(255,255,255,0.04)' } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 }, callback: v => v === 0 ? '' : fmtMillions(v) }, border:{ color:'transparent' } }
+      }
+    }
+  });
+}
+
+function renderChartVentasCosto(porDia, promedio) {
+  if (chartVentasCosto) chartVentasCosto.destroy();
+  if (!porDia.length) return;
+
+  const labels = porDia.map(d => fmtFechaCorta(d.fecha));
+  const values = porDia.map(d => +(d.pctCosto * 100).toFixed(2));
+  const promLinea = porDia.map(() => +(promedio * 100).toFixed(2));
+
+  chartVentasCosto = new Chart(document.getElementById('chartVentasCosto'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '% Costo insumo',
+          data: values,
+          backgroundColor: 'rgba(200,146,42,0.55)',
+          hoverBackgroundColor: '#E8A83A',
+          borderRadius: 4,
+          borderSkipped: false,
+          order: 2
+        },
+        {
+          type: 'line',
+          label: 'Promedio',
+          data: promLinea,
+          borderColor: '#7F77DD',
+          borderDash: [5,4],
+          pointRadius: 0,
+          borderWidth: 1.5,
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.raw.toFixed(1) + '%' }, displayColors: false }
+      },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 } }, border:{ color:'rgba(255,255,255,0.04)' } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#666', font:{ size:10 }, callback: v => v + '%' }, border:{ color:'transparent' } }
+      }
+    }
+  });
+}
+
+function renderTopPlatos(platos) {
+  const el = document.getElementById('ventasTopPlatos');
+  if (!platos.length) { el.innerHTML = '<p class="empty">Sin datos</p>'; return; }
+  const max = platos[0].ingresos;
+  el.innerHTML = platos.map((p, i) => {
+    const pct = ((p.ingresos / max) * 100).toFixed(1);
+    return `<div class="ins-row">
+      <span class="ins-rank">${i+1}</span>
+      <span class="ins-name" title="${p.nombre}">${fmtNombreCorto(p.nombre, 30)} <span style="color:var(--muted);font-size:10px;">×${p.cantidad}</span></span>
+      <div class="ins-track"><div class="ins-fill" style="width:${pct}%"></div></div>
+      <span class="ins-val">${fmtK(p.ingresos)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// MODAL DRILL-DOWN
+// ============================================================
+function openDayModal(fecha) {
+  const mes = __data.meses.find(m => m.key === __mesActivo);
+  if (!mes) return;
+
+  // Obtener ítems del día filtrados por categoría y proveedor activos
+  let items = (mes.detallesPorDia && mes.detallesPorDia[fecha]) || [];
+  if (__categoriasActivas.size > 0) items = items.filter(i => __categoriasActivas.has(i.categoria));
+  if (__proveedorActivo) items = items.filter(i => i.proveedor === __proveedorActivo);
+
+  const totalDia = items.reduce((s, i) => s + i.total, 0);
+
+  const filtroSufijo = [
+    __categoriasActivas.size > 0 ? Array.from(__categoriasActivas).join('+') : '',
+    __proveedorActivo ? fmtNombreProveedor(__proveedorActivo) : ''
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('modalTitle').textContent = '📅 ' + fmtFechaModal(fecha);
+  document.getElementById('modalSubtitle').textContent =
+    items.length + ' línea' + (items.length !== 1 ? 's' : '') + ' · ' +
+    new Set(items.map(i => i.factura)).size + ' factura(s)' +
+    (filtroSufijo ? ' · ' + filtroSufijo : '');
+
+  // Agrupar por proveedor
+  const porProv = {};
+  items.forEach(item => {
+    if (!porProv[item.proveedor]) porProv[item.proveedor] = [];
+    porProv[item.proveedor].push(item);
+  });
+
+  const provOrdenados = Object.entries(porProv)
+    .sort((a, b) => b[1].reduce((s, i) => s + i.total, 0) - a[1].reduce((s, i) => s + i.total, 0));
+
+  const mostrarCat = __categoriasActivas.size !== 1;
+
+  let html = '<table class="detail-table"><thead><tr>' +
+    '<th>Producto</th>' +
+    (mostrarCat ? '<th>Cat.</th>' : '') +
+    '<th>Cant.</th>' +
+    '<th>Unidad</th>' +
+    '<th class="right">P. Unit.</th>' +
+    '<th class="right">Total</th>' +
+    '</tr></thead><tbody>';
+
+  provOrdenados.forEach(([prov, provItems]) => {
+    const totalProv = provItems.reduce((s, i) => s + i.total, 0);
+    const provLabel = fmtNombreProveedor(prov) + ' — ' + fmtK(totalProv);
+    const colspan   = mostrarCat ? 6 : 5;
+    html += `<tr class="prov-group-header"><td colspan="${colspan}">${provLabel}</td></tr>`;
+    provItems.forEach(item => {
+      const chip = mostrarCat ? `<td>${catChip(item.categoria)}</td>` : '';
+      html += `<tr>
+        <td>${fmtNombreCorto(item.producto, 42)}</td>
+        ${chip}
+        <td class="muted">${item.cantidad > 0 ? item.cantidad : '—'}</td>
+        <td class="muted">${item.unidad || '—'}</td>
+        <td class="right muted">${item.precioUnit > 0 ? fmtK(item.precioUnit) : '—'}</td>
+        <td class="right">${fmtK(item.total)}</td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody></table>';
+
+  if (items.length === 0) {
+    html = '<p class="empty" style="margin-top:24px">Sin ítems para este día' +
+      (filtroSufijo ? ' con el filtro <strong>' + filtroSufijo + '</strong>' : '') +
+      '.</p>';
+  }
+
+  html += `<div class="modal-total">
+    <span class="modal-total-label">Total del día${filtroSufijo ? ' · ' + filtroSufijo : ''}</span>
+    <span class="modal-total-value">${fmtK(totalDia)}</span>
+  </div>`;
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function catChip(cat) {
+  const MAP = {
+    'Alimentos':      'alimentos',
+    'Bebidas':        'bebidas',
+    'Operativos':     'operativos',
+    'Activos':        'activos',
+    'Sin clasificar': 'sin'
+  };
+  const key = MAP[cat] || 'sin';
+  const short = cat === 'Sin clasificar' ? '?' : cat.slice(0, 3);
+  return `<span class="cat-chip cat-chip-${key}">${short}</span>`;
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function closeModalOnOverlay(event) {
+  if (event.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_LARGO = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function fmtFechaCorta(iso) {
+  try { const d = new Date(iso + 'T12:00:00'); return MESES_CORTO[d.getMonth()] + ' ' + d.getDate(); }
+  catch(e) { return iso; }
+}
+
+function fmtFechaLarga(iso) {
+  try { const d = new Date(iso + 'T12:00:00'); return d.getDate() + ' de ' + MESES_LARGO[d.getMonth()]; }
+  catch(e) { return iso; }
+}
+
+function fmtFechaModal(iso) {
+  try {
+    const d = new Date(iso + 'T12:00:00');
+    const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    return dias[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES_LARGO[d.getMonth()];
+  }
+  catch(e) { return iso; }
+}
+
+function fmtMillions(v) {
+  if (v >= 1000000) return '$' + (v/1000000).toFixed(1) + 'M';
+  if (v >= 1000)    return '$' + Math.round(v/1000) + 'k';
+  return '$' + Math.round(v);
+}
+
+function fmtK(v) {
+  if (v >= 1000000) return '$' + (v/1000000).toFixed(1) + 'M';
+  if (v >= 1000)    return '$' + Math.round(v/1000) + 'k';
+  return '$' + Math.round(v);
+}
+
+function fmtNombreCorto(nombre, max) {
+  const n = String(nombre || '');
+  return n.length > max ? n.slice(0, max) + '…' : n;
+}
+
+function fmtNombreProveedor(nombre) {
+  const n = String(nombre || 'Sin nombre');
+  return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase().slice(0, 36);
+}
+
+function escAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function escJS(s) {
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+function animNum(id, valor) {
+  const el = document.getElementById(id);
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(6px)';
+  setTimeout(() => {
+    el.textContent = valor;
+    el.style.transition = 'all .3s ease';
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  }, 80);
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function setLoading(on) {
+  const bar = document.getElementById('loadingBar');
+  bar.style.width = on ? '70%' : '100%';
+  if (!on) setTimeout(() => { bar.style.width = '0'; }, 400);
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+</script>
+</body>
+</html>
